@@ -44,7 +44,7 @@ static int sweepCircleCircle(const float* c0, const float r0, const float* v,
 	float d = b*b - a*c;
 	if (d < 0.0f) return 0; // no intersection.
 	a = 1.0f / a;
-	const float rd = dtSqrt(d);
+	const float rd = dtMathSqrtf(d);
 	tmin = (b - rd) * a;
 	tmax = (b + rd) * a;
 	return 1;
@@ -58,7 +58,7 @@ static int isectRaySeg(const float* ap, const float* u,
 	dtVsub(v,bq,bp);
 	dtVsub(w,ap,bp);
 	float d = dtVperp2D(u,v);
-	if (dtMathFabs(d) < 1e-6f) return 0;
+	if (dtMathFabsf(d) < 1e-6f) return 0;
 	d = 1.0f/d;
 	t = dtVperp2D(v,w) * d;
 	if (t < 0 || t > 1) return 0;
@@ -207,6 +207,9 @@ void dtFreeObstacleAvoidanceQuery(dtObstacleAvoidanceQuery* ptr)
 
 
 dtObstacleAvoidanceQuery::dtObstacleAvoidanceQuery() :
+	m_invHorizTime(0),
+	m_vmax(0),
+	m_invVmax(0),
 	m_maxCircles(0),
 	m_circles(0),
 	m_ncircles(0),
@@ -262,7 +265,7 @@ void dtObstacleAvoidanceQuery::addCircle(const float* pos, const float rad,
 
 void dtObstacleAvoidanceQuery::addSegment(const float* p, const float* q)
 {
-	if (m_nsegments > m_maxSegments)
+	if (m_nsegments >= m_maxSegments)
 		return;
 	
 	dtObstacleSegment* seg = &m_segments[m_nsegments++];
@@ -281,7 +284,7 @@ void dtObstacleAvoidanceQuery::prepare(const float* pos, const float* dvel)
 		const float* pa = pos;
 		const float* pb = cir->p;
 		
-		const float orig[3] = {0,0};
+		const float orig[3] = {0,0,0};
 		float dv[3];
 		dtVsub(cir->dp,pb,pa);
 		dtVnormalize(cir->dp);
@@ -331,7 +334,7 @@ float dtObstacleAvoidanceQuery::processSample(const float* vcand, const float cs
 	// find the threshold hit time to bail out based on the early out penalty
 	// (see how the penalty is calculated below to understnad)
 	float minPen = minPenalty - vpen - vcpen;
-	float tThresold = ((double)m_params.weightToi/(double)minPen - 0.1) * (double)m_params.horizTime;
+	float tThresold = (m_params.weightToi / minPen - 0.1f) * m_params.horizTime;
 	if (tThresold - m_params.horizTime > -FLT_EPSILON)
 		return minPenalty; // already too much
 
@@ -482,7 +485,7 @@ int dtObstacleAvoidanceQuery::sampleVelocityGrid(const float* pos, const float r
 // vector normalization that ignores the y-component.
 inline void dtNormalize2D(float* v)
 {
-	float d = dtSqrt(v[0]*v[0]+v[2]*v[2]);
+	float d = dtMathSqrtf(v[0] * v[0] + v[2] * v[2]);
 	if (d==0)
 		return;
 	d = 1.0f / d;
@@ -528,7 +531,6 @@ int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const flo
 	
 	const int nd = dtClamp(ndivs, 1, DT_MAX_PATTERN_DIVS);
 	const int nr = dtClamp(nrings, 1, DT_MAX_PATTERN_RINGS);
-	const int nd2 = nd / 2;
 	const float da = (1.0f/nd) * DT_PI*2;
 	const float ca = cosf(da);
 	const float sa = sinf(da);
@@ -547,8 +549,8 @@ int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const flo
 	for (int j = 0; j < nr; ++j)
 	{
 		const float r = (float)(nr-j)/(float)nr;
-		pat[npat*2+0] = ddir[(j%1)*3] * r;
-		pat[npat*2+1] = ddir[(j%1)*3+2] * r;
+		pat[npat*2+0] = ddir[(j%2)*3] * r;
+		pat[npat*2+1] = ddir[(j%2)*3+2] * r;
 		float* last1 = pat + npat*2;
 		float* last2 = last1;
 		npat++;

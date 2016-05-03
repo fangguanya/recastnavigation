@@ -29,9 +29,7 @@ template<class T> class dtFixedArray
 	dtTileCacheAlloc* m_alloc;
 	T* m_ptr;
 	const int m_size;
-	inline T* operator=(T* p);
 	inline void operator=(dtFixedArray<T>& p);
-	inline dtFixedArray();
 public:
 	inline dtFixedArray(dtTileCacheAlloc* a, const int s) : m_alloc(a), m_ptr((T*)a->alloc(sizeof(T)*s)), m_size(s) {}
 	inline ~dtFixedArray() { if (m_alloc) m_alloc->free(m_ptr); }
@@ -1068,6 +1066,7 @@ static bool buildMeshAdjacency(dtTileCacheAlloc* alloc,
 }
 
 
+// Last time I checked the if version got compiled using cmov, which was a lot faster than module (with idiv).
 inline int prev(int i, int n) { return i-1 >= 0 ? i-1 : n-1; }
 inline int next(int i, int n) { return i+1 < n ? i+1 : 0; }
 
